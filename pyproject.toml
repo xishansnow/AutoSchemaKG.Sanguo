@@ -1,0 +1,48 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "autoschemakg-medical"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "networkx>=3.0",
+    "openai>= 1.0.0",
+    "python-dotenv>= 0.19.0",
+    "requests>=2.28.0",
+    # Optional dependencies for visualization
+    "matplotlib>=3.5.0",
+    "rdflib>=6.0.0",
+    # Utility dependencies
+    "typing-extensions>=4.0.0",
+    # Neo4j dependencies
+    "neo4j>=5.14.0",
+    # ToG dependencies
+    "sentence-transformers>=2.2.0",
+    "qdrant-client>=1.7.0",
+    "tqdm>=4.65.0",
+    "rouge-score>=0.1.2",
+    "bert-score>=0.3.13",
+]
+
+#[tool.hatch.version]
+#path = "src/my_awesome_project/__init__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = [
+    "config",
+    "data",
+    "Eval",
+    "llm_api",
+    "output",
+    "pipeline",
+    "utils"
+]
+
+include = [
+    "main.py", # 包含根目录的单个模块
+    "main3.py", # 包含根目录的单个模块
+]
