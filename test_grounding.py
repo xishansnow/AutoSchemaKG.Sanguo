@@ -81,11 +81,11 @@ test_cases_semantic = [
     ("patient, healthcare provider, individual",
      "Patient or Healthcare Provider"),
     
-    ("hospital, medical institution, board",
+    ("hospital, historical institution, board",
      "Organization"),
     
     ("unknown concept, miscellaneous term",
-     "Medical Concept"),
+     "historical Concept"),
 ]
 
 all_semantic_passed = True

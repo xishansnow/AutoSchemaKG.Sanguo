@@ -18,7 +18,7 @@ from llm_api.real_api import (
 )
 
 
-def call_llm_for_wenyanwen(text_segment: Dict, use_real_llm: bool = False) -> Dict:
+def call_llm_for_wenyanwen(text_segment: str, use_real_llm: bool = False) -> str:
     """
     Extract triples from a text segment using LLM.
 
@@ -29,15 +29,9 @@ def call_llm_for_wenyanwen(text_segment: Dict, use_real_llm: bool = False) -> Di
         use_real_llm (bool): If True, use real API; if False, use stub
 
     Returns:
-        Dict: Extracted triples in format:
-            {
-                'entity_entity': [
-                    {'head': str, 'relation': str, 'tail': str, 'confidence': float}
-                ],
-                'entity_event': [...],
-                'event_event': [...]
-            }
-    """
+        str: Transformed text from Wenyanwen to Baihuawen
+    """ 
+    
     if use_real_llm:
         return real_call_llm_for_wenyanwen(text_segment)
     else:

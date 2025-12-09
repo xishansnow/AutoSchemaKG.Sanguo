@@ -1,5 +1,5 @@
 """
-LLM API package for Medical-SchemaKG Framework.
+LLM API package for historical-SchemaKG Framework.
 Handles both stubbed and real LLM API calls.
 """
 

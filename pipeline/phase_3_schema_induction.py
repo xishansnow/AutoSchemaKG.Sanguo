@@ -8,7 +8,7 @@ Part 3b (UMLS-INTEGRATED): Ontology grounding using UMLS API
 
 import os
 import json
-import re  # <--- QUAN TRỌNG: Đã thêm thư viện này
+import re  # <--- IMPORTANT: This library has been added
 from pathlib import Path
 from datetime import datetime
 from typing import Dict, List, Set, Optional
@@ -63,7 +63,7 @@ def _log_phase3_summary(induced_count, grounded_count, concept_stats, grounding_
     except Exception: pass
 
 def _print_phase3_progress(stage: str, current: int, total: int) -> None:
-    # Hàm này để giữ tương thích, nhưng logic chính ta đã dùng print trực tiếp
+    # This function is for compatibility, but the main logic uses print directly
     pass
 
 # =========================================================================
@@ -90,7 +90,7 @@ def dynamically_induce_concepts(unique_nodes: Set[str], all_triples: List[Dict] 
         print(f"    Processing batch {batch_num} ({len(batch_nodes)} nodes)...")
         
         try:
-            # 调用 LLM 进行概念归纳
+            # Call LLM for concept induction
             batch_concepts = call_llm_for_concepts(
                 batch_nodes, use_real_llm=use_real_llm, triples_list=all_triples 
             )
@@ -103,7 +103,7 @@ def dynamically_induce_concepts(unique_nodes: Set[str], all_triples: List[Dict] 
         except Exception as e:
             print(f"    ⚠ Batch {batch_num} failed: {e}")
             for node in batch_nodes:
-                induced_concepts[node] = "medical concept"
+                induced_concepts[node] = "historical concept"
     
     return induced_concepts
 
@@ -111,7 +111,7 @@ def dynamically_induce_concepts(unique_nodes: Set[str], all_triples: List[Dict] 
 def ground_concepts_to_ontology(induced_concepts: Dict[str, str], use_umls: bool = True) -> Dict[str, Dict]:
     """
     Part 3b: Ground induced concepts to ontologies.
-    UPDATED: Fix lỗi NameError và hiển thị [EVT]/[ENT].
+    UPDATED: Fix NameError and display [EVT]/[ENT].
     """
     print("  Initializing ontology grounding...")
     
@@ -139,12 +139,12 @@ def ground_concepts_to_ontology(induced_concepts: Dict[str, str], use_umls: bool
     processed = 0
     
     for node_name, concept_phrases in induced_concepts.items():
-        # --- PHÂN LOẠI HIỂN THỊ ---
+        # --- CLASSIFICATION DISPLAY ---
         node_type_label = "ENT"
         if "Event" in node_name or "[Event:" in node_name: 
             node_type_label = "EVT"
         
-        # --- LÀM SẠCH ---
+        # --- CLEANUP ---
         clean_node_name = _clean_node_text(node_name)
         search_term = clean_node_name 
 
@@ -158,7 +158,7 @@ def ground_concepts_to_ontology(induced_concepts: Dict[str, str], use_umls: bool
         
         if umls_loader and umls_loader.is_available():
             try:
-                # Tìm kiếm
+                # Search for concept
                 all_results = umls_loader.search_concept(search_term)
                 
                 umls_match = None
@@ -212,19 +212,18 @@ def ground_concepts_to_ontology(induced_concepts: Dict[str, str], use_umls: bool
 
 
 # =========================================================================
-# HELPER FUNCTIONS (ĐỊNH NGHĨA ĐẦY ĐỦ Ở ĐÂY)
+# HELPER FUNCTIONS (FULLY DEFINED HERE)
 # =========================================================================
-
 def _clean_node_text(text: str) -> str:
-    """Hàm làm sạch chuỗi: Loại bỏ [Event: ...], Event:, Entity:"""
-    # Loại bỏ [Event: ...], [Entity: ...]
+    """Clean string function: Remove [Event: ...], Event:, Entity:"""
+    # Remove [Event: ...], [Entity: ...]
     text = re.sub(r'\[(Event|Entity):\s*(.*?)\]', r'\2', text)
-    # Loại bỏ prefix Event:, Entity: nếu có
+    # Remove Event:, Entity: prefix if present
     text = re.sub(r'^(Event|Entity):\s*', '', text)
     return text.strip()
 
 def _create_fallback_data(name, source_type):
-    """Tạo dữ liệu mặc định khi không tìm thấy"""
+    """Create default data when no match is found"""
     return {
         'ontology_id': f"UNKNOWN:{name.upper()[:8]}",
         'ontology_name': 'UNKNOWN',
@@ -237,7 +236,7 @@ def _create_fallback_data(name, source_type):
     }
 
 def _export_csv_phase3(grounded_nodes):
-    """Xuất file CSV kết quả"""
+    """Export CSV file with results"""
     try:
         import csv
         # Use Eval/import/data directory for output
@@ -260,7 +259,7 @@ def _export_csv_phase3(grounded_nodes):
 
 def _infer_semantic_type(concept: str) -> str:
     """Infer semantic type from concept string."""
-    if not concept: return "Medical Concept"
+    if not concept: return "historical Concept"
     concept_lower = concept.lower()
     if any(word in concept_lower for word in ['drug', 'medication', 'medicine', 'inhibitor']):
         return "Pharmacologic Substance"
@@ -268,4 +267,4 @@ def _infer_semantic_type(concept: str) -> str:
         return "Disease or Syndrome"
     elif any(word in concept_lower for word in ['procedure', 'surgery', 'test']):
         return "Therapeutic or Preventive Procedure"
-    return "Medical Concept"
+    return "historical Concept"

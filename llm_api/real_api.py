@@ -25,6 +25,9 @@ from openai import OpenAI
 LOG_DIR = Path(os.getenv("OUTPUT_DIR", "output"))
 LOG_FILE = LOG_DIR / "llm_api_responses.log"
 
+# Set max tokens can be filled 
+MAX_TOKENS = 4096 - 200  # TOKEN_LIMIT - INSTRUCTION_TOKEN_ESTIMATE
+
 
 def _clean_json_string(json_str: str) -> str:
     """
@@ -204,15 +207,15 @@ def _log_llm_response(call_type: str, input_data: str, response_data: str, attem
             else:
                 f.write(f"STATUS: SUCCESS\n")
                 f.write("-" * 100 + "\n")
-                f.write(f"INPUT:\n{input_data[:500]}{'...' if len(input_data) > 500 else ''}\n")
+                f.write(f"INPUT:\n{input_data[:MAX_TOKENS]}{'...' if len(input_data) > 500 else ''}\n")
                 f.write("-" * 100 + "\n")
-                f.write(f"RESPONSE:\n{response_data[:1000]}{'...' if len(response_data) > 1000 else ''}\n")
+                f.write(f"RESPONSE:\n{response_data[:MAX_TOKENS]}{'...' if len(response_data) > 1000 else ''}\n")
                 f.write("=" * 100 + "\n\n")
     except Exception as e:
         print(f"    ⚠ Warning: Failed to log API response: {e}")
 
 #################################################################################################
-# 构造文言文转换的提示词
+# Build prompt for Wenyanwen (Classical Chinese) transformation
 #################################################################################################
 
 def _build_wenyanwen_transform_prompt(text_segment: str) -> str:
@@ -221,7 +224,7 @@ def _build_wenyanwen_transform_prompt(text_segment: str) -> str:
     More explicit and structured format.
     """
     # Limit text segment to avoid token overflow
-    text_segment = text_segment[:800]
+    text_segment = text_segment[:MAX_TOKENS]
 
     return f"""你是一个文言文专家。
 
@@ -231,13 +234,19 @@ TEXT TO ANALYZE:
 {text_segment}
 
 INSTRUCTIONS:
-1. Return ONLY a string.
+1. Return plain text.
+2. Return ONLY transformed modern chinese text.
 
 CRITICAL:
-- No explanations"""
+- No explanations
+- No thinking steps
+- No remarks
+- Don't truncate the content
+- 不要添加备注.
+"""
 
 #################################################################################################
-# 构造三元组提取的提示词
+# Build prompt for triple extraction
 #################################################################################################
 def _build_triple_extraction_prompt(text_segment: str) -> str:
     """
@@ -245,7 +254,7 @@ def _build_triple_extraction_prompt(text_segment: str) -> str:
     More explicit and structured format.
     """
     # Limit text segment to avoid token overflow
-    text_segment = text_segment[:800]
+    text_segment = text_segment[:MAX_TOKENS]
 
     return f"""你是一个知识图谱三元组提取专家，并且熟知三国时期的历史。
 
@@ -294,7 +303,7 @@ CRITICAL:
 
 
 #################################################################################################
-# 构造概念归纳的提示词
+# Build prompt for concept induction
 #################################################################################################
 
 def _build_concept_induction_prompt(node_list: list, triples_context: list = None) -> str:
@@ -337,22 +346,22 @@ CRITICAL:
 
 
 #################################################################################################
-# 调用 LLM 实现文言文转白话文
+# Call LLM to translate Classical Chinese (Wenyanwen) to Modern Chinese (Baihuawen)
 #################################################################################################
 
-def real_call_llm_for_wenyanwen(text_segment: Dict) -> Dict:
+def real_call_llm_for_wenyanwen(text_segment: str) -> Dict:
     """
-    REAL API: Translate Wenyanwen to Baihuawen using Llama3 (via LM Studio).
-    WITH improved error handling and debugging.
+        REAL API: Translate Wenyanwen to Baihuawen using Llama3 (via LM Studio).
+        WITH improved error handling and debugging.
     """
     base_url = os.getenv('LM_STUDIO_BASE_URL', 'http://localhost:1234/v1')
     client = OpenAI(base_url=base_url, api_key="lm-studio")  # LM studio uses fixed API key "lm-studio"
 
     model_name = os.getenv("MODEL_NAME", "qwen/qwen3-4b-2507")
     temperature = float(os.getenv("MODEL_TEMPERATURE", "0.05"))  # Lower = more deterministic
-    max_tokens = int(os.getenv("MODEL_MAX_TOKENS", "1500"))
+    max_tokens = int(os.getenv("MODEL_MAX_TOKENS", "4096"))
 
-    prompt = _build_wenyanwen_transform_prompt(text_segment.get("text", ""))
+    prompt = _build_wenyanwen_transform_prompt(text_segment)
 
     attempt = 0
     last_response = ""
@@ -360,14 +369,14 @@ def real_call_llm_for_wenyanwen(text_segment: Dict) -> Dict:
     while True:
         attempt += 1
         try:
-            print(f"    → LLM API call for Wenyanwen translate (attempt {attempt})...", end=" ", flush=True)
+            # print(f"    → LLM API call for Wenyanwen translate (attempt {attempt})...\n", end=" ", flush=True)
 
             response = client.chat.completions.create(
                 model=model_name,
                 messages=[
                     {
                         "role": "system",
-                        "content": "You output only valid JSON. No explanations. No code blocks. Only JSON."
+                        "content": "You output only a string."
                     },
                     {
                         "role": "user",
@@ -379,9 +388,14 @@ def real_call_llm_for_wenyanwen(text_segment: Dict) -> Dict:
             )
 
             response_text = response.choices[0].message.content.strip()
-            last_response = response_text
+            last_response = response_text           
+     
+            # Clean response
+            response_text = re.sub(r'<think>.*?</think>', '', response_text, flags=re.DOTALL)
+            # response_text = response_text.replace("<think>", "").replace("</think>", "")
+            response_text = response_text.strip()
 
-            text_segment["text"] = response_text
+            text_segment = response_text
 
             return text_segment
 
@@ -391,15 +405,15 @@ def real_call_llm_for_wenyanwen(text_segment: Dict) -> Dict:
             if attempt >= 3:
                 print(f"    ⚠ Failed after {attempt} attempts. Using fallback.")
                 print(f"      Last response: {last_response[:100]}", flush=True)
-                _log_llm_response("triple_extraction", prompt, last_response, attempt, str(e))
-                return {"entity_entity": [], "entity_event": [], "event_event": []}
+                _log_llm_response("wenyanwen_transform", prompt, last_response, attempt, str(e))
+                return text_segment # return original segment on failure
             time.sleep(2)
             continue
 
 
 
 #################################################################################################
-# 调用 LLM 实现三元组提取
+# Call LLM for triple extraction
 #################################################################################################
 
 def real_call_llm_for_triples(text_segment: str) -> Dict:
@@ -412,7 +426,7 @@ def real_call_llm_for_triples(text_segment: str) -> Dict:
 
     model_name = os.getenv("MODEL_NAME", "qwen/qwen3-4b-2507")
     temperature = float(os.getenv("MODEL_TEMPERATURE", "0.05"))  # Lower = more deterministic
-    max_tokens = int(os.getenv("MODEL_MAX_TOKENS", "1500"))
+    max_tokens = int(os.getenv("MODEL_MAX_TOKENS", "4096"))
 
     prompt = _build_triple_extraction_prompt(text_segment)
 
@@ -501,7 +515,7 @@ def real_call_llm_for_triples(text_segment: str) -> Dict:
 
 
 #################################################################################################
-# 调用 LLM 实现概念归纳
+# Call LLM for concept induction
 #################################################################################################
 
 def real_call_llm_for_concepts(node_list: List[str], triples_list: List[Dict] = None) -> Dict[str, str]:
@@ -515,7 +529,7 @@ def real_call_llm_for_concepts(node_list: List[str], triples_list: List[Dict] = 
     # Load model parameters from environment
     model_name = os.getenv("MODEL_NAME", "qwen/qwen3-4b-2507")
     temperature = float(os.getenv("MODEL_TEMPERATURE", "0.05"))
-    max_tokens = int(os.getenv("MODEL_MAX_TOKENS", "1500"))
+    max_tokens = int(os.getenv("MODEL_MAX_TOKENS", "4096"))
 
     prompt = _build_concept_induction_prompt(node_list, triples_list)
 

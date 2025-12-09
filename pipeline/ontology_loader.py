@@ -1,7 +1,7 @@
 """
 Ontology Loader Module
 ======================
-Manages medical ontologies and provides search/matching capabilities
+Manages historical ontologies and provides search/matching capabilities
 Supports: DOID, HPO, MeSH, RxNorm
 """
 

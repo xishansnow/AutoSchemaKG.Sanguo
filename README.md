@@ -1,10 +1,10 @@
-# Medical-SchemaKG Framework
+# Historical-SchemaKG Framework
 
-A Python prototype framework for building ontology-grounded medical knowledge graphs from text using LLM-based extraction.
+A Python prototype framework for building ontology-grounded historical knowledge graphs from text using LLM-based extraction.
 
 ## Overview
 
-The Medical-SchemaKG Framework implements a four-phase pipeline to construct knowledge graphs from medical text documents:
+The Historical-SchemaKG framework implements a four-phase pipeline to construct knowledge graphs from historical text documents:
 
 1. **Phase 1: Document Ingestion & Preprocessing** (Stubbed)
 2. **Phase 2: Triple Extraction** (Core Module)
@@ -28,7 +28,7 @@ The Medical-SchemaKG Framework implements a four-phase pipeline to construct kno
 ### Pipeline Flow
 
 ```
-Medical Text → Segmentation → Triple Extraction → Schema Induction → Ontology Grounding → Knowledge Graph
+Historical text → Segmentation → Triple Extraction → Schema Induction → Ontology Grounding → Knowledge Graph
 ```
 
 ## Installation
@@ -71,7 +71,7 @@ python main.py
 ```
 
 This will:
-- Load or create sample medical text
+- Load or create sample historical text
 - Extract triples using stubbed LLM calls
 - Induce concepts and ground to ontologies
 - Build the final knowledge graph
@@ -92,7 +92,7 @@ python main.py
 
 ### Custom Input
 
-Place your medical text file in `data/sample_medical_text.txt` or modify the `input_file` path in `main.py`.
+Place your historical text file in `data/sample_historical_text.txt` or modify the `input_file` path in `main.py`.
 
 ## Project Structure
 
@@ -114,7 +114,7 @@ Framework/
 │   ├── __init__.py
 │   └── visualization.py             # Visualization and reporting
 ├── data/
-│   └── sample_medical_text.txt      # Sample input (auto-generated)
+│   └── sample_historical_text.txt      # Sample input (auto-generated)
 ├── output/
 │   ├── knowledge_graph.png          # Graph visualization
 │   ├── knowledge_graph.json         # Graph in JSON format
@@ -198,7 +198,7 @@ The framework is fully configurable via environment variables in the `.env` file
 - `MODEL_MAX_TOKENS`: Maximum response tokens (default: `2000`)
 
 #### File Path Configuration
-- `INPUT_FILE`: Path to input text file (default: `data/sample_medical_text.txt`)
+- `INPUT_FILE`: Path to input text file (default: `data/sample_historical_text.txt`)
 - `OUTPUT_DIR`: Directory for output files (default: `output`)
 
 ### Example .env Configuration
@@ -214,7 +214,7 @@ MODEL_TEMPERATURE=0.1
 MODEL_MAX_TOKENS=2000
 
 # File paths
-INPUT_FILE=data/sample_medical_text.txt
+INPUT_FILE=data/sample_historical_text.txt
 OUTPUT_DIR=output
 ```
 
@@ -235,7 +235,7 @@ MODEL_TEMPERATURE=0.2
 
 **Option 3: Custom Input/Output Paths**
 ```ini
-INPUT_FILE=data/my_medical_notes.txt
+INPUT_FILE=data/my_historical_notes.txt
 OUTPUT_DIR=results
 ```
 
@@ -270,7 +270,7 @@ The framework supports two modes:
 
 The framework uses specialized prompts for:
 
-1. **Triple Extraction**: Instructs LLM to act as medical domain expert and extract structured triples with confidence scores
+1. **Triple Extraction**: Instructs LLM to act as historical domain expert and extract structured triples with confidence scores
 
 2. **Concept Induction**: Instructs LLM to act as ontologist and generate abstract, high-level concept descriptions
 
@@ -297,7 +297,7 @@ Modify `pipeline/phase_1_ingestion.py` to implement:
 Replace `ground_concepts_to_ontology()` in `pipeline/phase_3_schema_induction.py` with:
 - UMLS API integration
 - SNOMED CT lookup
-- Custom medical ontologies
+- Custom historical ontologies
 
 ### Alternative LLM Models
 
@@ -342,7 +342,7 @@ pip install matplotlib
 
 This framework implements concepts from:
 - **AutoSchemaKG**: Automatic Schema Induction for Knowledge Graphs
-- Medical knowledge extraction methodologies
+- historical knowledge extraction methodologies
 - Hybrid ontology grounding approaches
 
 ## License

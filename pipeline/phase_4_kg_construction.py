@@ -2,7 +2,7 @@
 Phase 4: Knowledge Graph Construction (CORE MODULE)
 ====================================================
 This module integrates all outputs from previous phases to build the final
-Onto-MedKG (Ontology-grounded Medical Knowledge Graph).
+Onto-MedKG (Ontology-grounded historical Knowledge Graph).
 
 GRAPH STRUCTURE:
 - Nodes: Entities, Events, and Grounded Concepts
@@ -44,7 +44,7 @@ def build_knowledge_graph(all_triples: List[Dict], grounded_nodes: Dict[str, Dic
             ontology_id=attributes.get('ontology_id', 'UNKNOWN'),
             induced_concept=attributes.get('induced_concept', ''),
             ontology_name=attributes.get('ontology_name', node_name),
-            semantic_type=attributes.get('semantic_type', 'Medical Concept'),
+            semantic_type=attributes.get('semantic_type', 'historical Concept'),
             node_type=_determine_node_type(node_name, all_triples)
         )
     

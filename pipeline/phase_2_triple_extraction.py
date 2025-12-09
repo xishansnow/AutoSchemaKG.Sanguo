@@ -15,17 +15,17 @@ TRIPLE TYPES:
    Example: ([Event: Initial Diagnosis], led_to, [Event: Surgical Intervention])
 """
 
-from typing import List, Dict, Set, Tuple
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from llm_api.interface import call_llm_for_triples, call_llm_for_wenyanwen
-from tqdm import tqdm  # Import thư viện Progress Bar
 import os
 import json
 from datetime import datetime
 from pathlib import Path
+from typing import List, Dict, Set, Tuple
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from llm_api.interface import call_llm_for_triples, call_llm_for_wenyanwen
+from tqdm import tqdm  # Import Progress Bar library
 
-# CẤU HÌNH SỐ LUỒNG (THREADS)
-# Với RTX 3080 10GB + Llama 3 8B, mức 4-5 là tối ưu.
+# CONFIGURE NUMBER OF THREADS
+# With RTX 3080 10GB + Llama 3 8B, level 4-5 is optimal.
 MAX_WORKERS = 5
 
 # Replace hard-coded path with env-configurable path
@@ -68,41 +68,41 @@ class TripleExtractor:
         print(f"  🚀 Starting Parallel Extraction on {total_segments} segments with {MAX_WORKERS} threads...")
         print(f"  ⚡ GPU Utilization target: MAX POWER")
 
-        # Sử dụng ThreadPoolExecutor để chạy đa luồng
+        # Use ThreadPoolExecutor for parallel processing
         with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
-            # Submit tất cả các task vào hàng đợi
+            # Submit all tasks to the queue
             future_to_idx = {
                 executor.submit(self._process_single_segment, segment, idx): idx 
                 for idx, segment in enumerate(text_segments, 1)
             }
             
-            # Khởi tạo thanh Progress Bar (TQDM)
-            # ncols=100: độ rộng thanh hiển thị
-            # unit='seg': đơn vị đếm là segment
+            # Initialize Progress Bar (TQDM)
+            # ncols=100: progress bar display width
+            # unit='seg': counting unit is segment
             with tqdm(total=total_segments, desc="  Processing", unit="seg", ncols=100) as pbar:
                 for future in as_completed(future_to_idx):
                     idx = future_to_idx[future]
                     
                     try:
-                        # Lấy kết quả từ luồng
+                        # Get result from thread
                         segment_triples = future.result()
                         
                         if segment_triples:
                             self.all_triples.extend(segment_triples)
-                            # Cập nhật dòng thông tin phụ (số triple tìm thấy trong segment này)
+                            # Update status line with number of triples found in this segment
                             pbar.set_postfix_str(f"Found {len(segment_triples)} triples", refresh=False)
                         
-                        # Tăng tiến độ lên 1
+                        # Increment progress by 1
                         pbar.update(1)
                         
                     except Exception as e:
-                        # Dùng pbar.write để in lỗi mà không làm vỡ giao diện thanh tiến trình
+                        # Use pbar.write to print errors without breaking the progress bar interface
                         pbar.write(f"  ✗ Error in segment {idx}: {e}")
                         pbar.update(1)
 
         print(f"\n  ✅ Parallel extraction complete! Processed {total_segments} segments.")
 
-        # Tổng hợp unique nodes một lần duy nhất ở cuối
+        # Aggregate unique nodes once at the end
         print("  Aggregating unique nodes...", end="\r")
         for triple in self.all_triples:
             self.unique_nodes.add(triple['head'])
@@ -114,8 +114,8 @@ class TripleExtractor:
         """
         Helper function to process a single segment (runs inside a thread).
         """
-        # Chuẩn hóa input
-        segment = call_llm_for_wenyanwen(segment, use_real_llm=self.use_real_llm)
+        # Normalize input
+        # segment = call_llm_for_wenyanwen(segment, use_real_llm=self.use_real_llm)
 
         if isinstance(segment, dict):
             text = segment.get('text', '')
@@ -126,7 +126,7 @@ class TripleExtractor:
             chunk_id = idx
             doc_id = 'unknown'
             
-        # Gọi LLM API
+        # Call LLM API
         try:
             triples_data = call_llm_for_triples(text, use_real_llm=self.use_real_llm)
             status = "success"
@@ -150,7 +150,7 @@ class TripleExtractor:
         except Exception as e:
             print(f"  ⚠ Warning: failed to prepare phase2 log entry: {e}")
         
-        # Xử lý kết quả JSON thành List Dict
+        # Process JSON response into List of Dict
         return self._process_triple_response(triples_data, segment_id=chunk_id, doc_id=doc_id)
     
     def _process_triple_response(self, triples_data: Dict, segment_id: int, doc_id: str = 'unknown') -> List[Dict]:
@@ -162,12 +162,12 @@ class TripleExtractor:
         
         # Helper local function to avoid code duplication
         def add_triple(t_data, t_type, h_type, t_type_str):
-            # FIX: Dùng (val or '') để biến None thành chuỗi rỗng trước khi strip
+            # FIX: Use (val or '') to convert None to empty string before strip
             head = (t_data.get('head') or '').strip()
             relation = (t_data.get('relation') or '').strip()
             tail = (t_data.get('tail') or '').strip()
             
-            # Chỉ thêm vào nếu cả 3 thành phần đều có dữ liệu
+            # Only add if all 3 components have data
             if head and relation and tail:
                 processed_triples.append({
                     'type': t_type,
@@ -223,21 +223,47 @@ class TripleExtractor:
             'event_list': sorted(list(event_nodes))
         }
 
-    def convert_to_baihua(self, segment: Dict) -> Dict:
-        """
-        将文言文转换为白话文。
-        :param segment: 包含文言文文本的字典，格式为 {'text': 文言文内容, ...}
-        :return: 包含白话文文本的字典，格式为 {'text': 白话文内容, ...}
-        """
-        try:
-            # 提取文言文文本
-            wenyanwen_text = segment.get('text', '')
-
-            # 调用 LLM API 进行转换
-            baihua_text = call_llm_for_wenyanwen(wenyanwen_text, use_real_llm=self.use_real_llm)
-
-            # 返回转换后的结果
-            return {**segment, 'text': baihua_text}
-        except Exception as e:
-            print(f"⚠ 转换文言文失败: {e}")
-            return {**segment, 'text': segment.get('text', '')}  # 保留原始文本
+    
+        
+        
+# if __name__ == "__main__":
+    # # Test the chunking logic directly
+    # import sys
+    # import json
+    
+    # # Default test file
+    # test_file = "data/sanguo_origin.txt"
+    
+    # # Allow passing file path as argument
+    # if len(sys.argv) > 1:
+    #     test_file = sys.argv[1]
+        
+    # print(f"Testing Phase 1 Ingestion on: {test_file}")
+    # print(f"Token-based chunking: max ~{int((TOKEN_LIMIT - INSTRUCTION_TOKEN_ESTIMATE) * CHAR_TO_TOKEN_RATIO)} chars/chunk")
+    
+    # try:
+    #     chunks = load_and_segment_text(test_file)
+    #     print(f"\n✅ Successfully created {len(chunks)} chunks.")
+        
+    #     # Statistics
+    #     total_chars = sum(len(chunk['text']) for chunk in chunks)
+    #     avg_chars = total_chars / len(chunks) if chunks else 0
+    #     print(f"   Total characters: {total_chars:,}")
+    #     print(f"   Average chunk size: {avg_chars:.0f} chars")
+        
+    #     print("\n--- Sample Chunk 1 ---")
+    #     if len(chunks) > 0:
+    #         print(json.dumps(chunks[0], indent=2, ensure_ascii=False)[:500])
+            
+    #     print("\n--- Sample Chunk 2 ---")
+    #     if len(chunks) > 1:
+    #         print(json.dumps(chunks[1], indent=2, ensure_ascii=False)[:500])
+            
+    #     print("\n--- Sample Chunk 10 ---")
+    #     if len(chunks) > 10:
+    #         print(json.dumps(chunks[10], indent=2, ensure_ascii=False)[:500])
+            
+    # except Exception as e:
+    #     print(f"\n❌ Error: {e}")
+    #     import traceback
+    #     traceback.print_exc()

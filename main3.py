@@ -1,8 +1,8 @@
 """
 Medical-SchemaKG - Resume Script (main3.py)
 ===========================================
-Chế độ: CHẠY TỪ ĐẦU PHASE 3b (BỎ QUA 3a)
-Quy trình: Load Phase 2 -> (Skip 3a) -> Phase 3b -> Phase 4
+Mode: RUN FROM START OF PHASE 3b (SKIP 3a)
+Procedure: Load Phase 2 -> (Skip 3a) -> Phase 3b -> Phase 4
 """
 
 import os
@@ -11,11 +11,11 @@ import json
 import pickle
 from pathlib import Path
 
-# 1. Cấu hình đường dẫn
+# 1. Configure file paths
 project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root))
 
-# 2. Load .env
+# 2. Load .env file
 try:
     from dotenv import load_dotenv
     load_dotenv(project_root / ".env")
@@ -31,9 +31,9 @@ OUTPUT_DIR = os.getenv("OUTPUT_DIR", "output")
 USE_REAL_LLM = os.getenv("USE_REAL_LLM", "false").lower() == "true"
 
 # ===========================================================
-# CẤU HÌNH CHẠY
-# True = Bỏ qua chạy LLM (3a), giả lập dữ liệu để chạy ngay 3b
-# False = Chạy đầy đủ 3a -> 3b
+# RUN CONFIGURATION
+# True = Skip LLM run (3a), simulate data to run Phase 3b immediately
+# False = Run full 3a -> 3b
 SKIP_PHASE_3A = True 
 # ===========================================================
 
@@ -46,9 +46,9 @@ def main():
     print("=" * 60)
 
     # ---------------------------------------------------------
-    # BƯỚC 1: LOAD DỮ LIỆU TỪ PHASE 2 (CHECKPOINT)
+    # STEP 1: LOAD DATA FROM PHASE 2 (CHECKPOINT)
     # ---------------------------------------------------------
-    print("\n📂 [BƯỚC 1] Loading Phase 2 Checkpoint...")
+    print("\n📂 [STEP 1] Loading Phase 2 Checkpoint...")
     
     possible_paths = [
         os.path.join(OUTPUT_DIR, "Phase2_Response.pkl"),
@@ -63,7 +63,7 @@ def main():
             break
     
     if not checkpoint_path:
-        print("❌ LỖI: Không tìm thấy file 'Phase2_Response.pkl'.")
+        print("❌ ERROR: Could not find 'Phase2_Response.pkl' file.")
         return
 
     try:
@@ -74,40 +74,40 @@ def main():
             all_triples = data.get("all_triples", [])
             unique_nodes = data.get("unique_nodes", set())
         elif isinstance(data, list):
-            print("⚠ Data dạng List cũ. Converting...")
+            print("⚠ Old list format data. Converting...")
             all_triples = data
             unique_nodes = set()
             for t in all_triples:
                 unique_nodes.add(t['head'])
                 unique_nodes.add(t['tail'])
         else:
-            print("❌ Format file pickle không hợp lệ.")
+            print("❌ Invalid pickle file format.")
             return
 
-        print(f"✅ Đã load: {len(all_triples)} triples, {len(unique_nodes)} nodes.")
+        print(f"✅ Loaded: {len(all_triples)} triples, {len(unique_nodes)} nodes.")
 
     except Exception as e:
-        print(f"❌ Lỗi đọc file pickle: {e}")
+        print(f"❌ Error reading pickle file: {e}")
         return
 
     # ---------------------------------------------------------
-    # BƯỚC 2: CHẠY (HOẶC GIẢ LẬP) PHASE 3a
+    # STEP 2: RUN (OR SIMULATE) PHASE 3a
     # ---------------------------------------------------------
     induced_concepts = {}
 
     if SKIP_PHASE_3A:
-        print("\n⏩ [BƯỚC 2] SKIPPING PHASE 3a (Concept Induction)...")
-        print("   -> Tạo dữ liệu giả lập để chạy ngay Phase 3b.")
+        print("\n⏩ [STEP 2] SKIPPING PHASE 3a (Concept Induction)...")
+        print("   -> Creating simulated data to run Phase 3b immediately.")
         
-        # Tạo dictionary giả lập: { "NodeName": "Medical Concept" }
-        # Việc này giúp Phase 3b có đầu vào mà không cần chờ LLM chạy
+        # Create mock dictionary: { "NodeName": "Medical Concept" }
+        # This helps Phase 3b have input without waiting for LLM to run
         for node in unique_nodes:
-            induced_concepts[node] = "历史概念"
+            induced_concepts[node] = "Historical Concept"
             
-        print(f"✅ Đã chuẩn bị {len(induced_concepts)} nodes cho Grounding.")
+        print(f"✅ Prepared {len(induced_concepts)} nodes for Grounding.")
 
     else:
-        print("\n🚀 [BƯỚC 2] CHẠY PHASE 3a: Concept Induction (LLM)...")
+        print("\n🚀 [STEP 2] RUNNING PHASE 3a: Concept Induction (LLM)...")
         try:
             induced_concepts = dynamically_induce_concepts(
                 unique_nodes, 
@@ -115,15 +115,15 @@ def main():
                 use_real_llm=USE_REAL_LLM
             )
         except Exception as e:
-            print(f"❌ Lỗi Phase 3a: {e}")
+            print(f"❌ Error in Phase 3a: {e}")
             return
 
     # ---------------------------------------------------------
-    # BƯỚC 3: CHẠY PHASE 3b (ONTOLOGY GROUNDING)
+    # STEP 3: RUN PHASE 3b (ONTOLOGY GROUNDING)
     # ---------------------------------------------------------
-    print("\n🚀 [BƯỚC 3] CHẠY PHASE 3b: Ontology Grounding...")
+    print("\n🚀 [STEP 3] RUNNING PHASE 3b: Ontology Grounding...")
     try:
-        # Đây là bước quan trọng nhất bạn muốn test
+        # This is the most important step you want to test
         grounded_nodes = ground_concepts_to_ontology(induced_concepts)
         
         # Lưu kết quả
