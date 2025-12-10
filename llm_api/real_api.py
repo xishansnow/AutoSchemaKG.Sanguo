@@ -254,11 +254,11 @@ def _build_triple_extraction_prompt(text_segment: str) -> str:
     More explicit and structured format.
     """
     # Limit text segment to avoid token overflow
-    text_segment = text_segment[:MAX_TOKENS]
+    text_segment = text_segment[:MAX_TOKENS]    
 
-    return f"""你是一个知识图谱三元组提取专家，并且熟知三国时期的历史。
+    return f"""You are a history knowledge extraction expert.
 
-TASK: 从下述文本中提取三元组（关系）。
+TASK: Extract triples (relationships) from history text.
 
 TEXT TO ANALYZE:
 {text_segment}
@@ -268,11 +268,11 @@ INSTRUCTIONS:
 2. Extract ONLY these 3 types:
    - entity_entity: Entity associate with Entity  (e.g., "赵子龙" is "刘备"'s "将军))
    - entity_event: Entity in Event (e.g., "刘备" participated in "[Event: 桃园三结义]","桃园三结义“ 所在地为 "桃园”, "桃园三结义" 发生时间为 "东汉末年")
-   - event_event: Event causes Event (e.g., "[Event: 街亭失守]" leads to "[Event: 诸葛亮北伐失败]")
+   - event_event: Event causes Event (e.g., "[Event: infection]" leads to "[Event: treatment]")
 
 3. Return ONLY this JSON structure - nothing else:
 
-{{
+{{ 
   "entity_entity": [
     {{"head": "word1", "relation": "word2", "tail": "word3"}}
   ],
@@ -292,14 +292,61 @@ INSTRUCTIONS:
 }}
 
 CRITICAL:
-- 严格使用中文
 - Output ONLY valid JSON
 - No explanations
 - No markdown code blocks
 - No text before or after JSON
 - Start with {{ and end with }}
 - Use double quotes for all strings
-- Separate array items with commas"""
+- Separate array items with commas
+"""
+
+#     return f"""你是一个知识图谱三元组提取专家，并且熟知三国时期的历史。
+
+# TASK: 从下述文本中提取三元组（关系）。
+
+# TEXT TO ANALYZE: {text_segment}
+
+# INSTRUCTIONS:
+# 1. Find relationships between history concepts
+# 2. Extract ONLY these 3 types:
+#    - entity_entity: Entity associate with Entity  (e.g., "赵子龙" is "刘备"'s "将军))
+#    - entity_event: Entity in Event (e.g., "刘备" participated in "[Event: 桃园三结义]","桃园三结义“ 所在地为 "桃园”, "桃园三结义" 发生时间为 "东汉末年")
+#    - event_event: Event causes Event (e.g., "[Event: 街亭失守]" leads to "[Event: 诸葛亮北伐失败]")
+
+# 3. Return ONLY this JSON structure - nothing else:
+
+# {{
+#   "entity_entity": [
+#     {{"head": "word1", "relation": "word2", "tail": "word3"}}
+#   ],
+#   "entity_event": [
+#     {{"head": "entity", "relation": "action", "tail": "[Event: description]"}}
+#   ],
+#   "event_event": [
+#     {{"head": "[Event: description]", "relation": "action", "tail": "[Event: description]"}}
+#   ]
+# }}
+
+# 4. If no triples found, return:
+# {{
+#   "entity_entity": [],
+#   "entity_event": [],
+#   "event_event": []
+# }}
+
+# CRITICAL:
+# - 严格使用中文
+# - 不添加任何说明或备注
+# - 不返回思考过程
+# - 不要截断内容
+# - Output ONLY valid JSON
+# - No explanations
+# - No markdown code blocks
+# - No text before or after JSON
+# - Start with {{ and end with }}
+# - Use double quotes for all strings
+# - Separate array items with commas"""
 
 
 #################################################################################################
@@ -354,7 +401,7 @@ def real_call_llm_for_wenyanwen(text_segment: str) -> Dict:
         REAL API: Translate Wenyanwen to Baihuawen using Llama3 (via LM Studio).
         WITH improved error handling and debugging.
     """
-    base_url = os.getenv('LM_STUDIO_BASE_URL', 'http://localhost:1234/v1')
+    base_url = os.getenv('BASE_URL', 'http://localhost:1234/v1')
     client = OpenAI(base_url=base_url, api_key="lm-studio")  # LM studio uses fixed API key "lm-studio"
 
     model_name = os.getenv("MODEL_NAME", "qwen/qwen3-4b-2507")
@@ -421,7 +468,7 @@ def real_call_llm_for_triples(text_segment: str) -> Dict:
     REAL API: Extract triples using Llama3 (via LM Studio).
     WITH improved error handling and debugging.
     """
-    base_url = os.getenv('LM_STUDIO_BASE_URL', 'http://localhost:1234/v1')
+    base_url = os.getenv('BASE_URL', 'http://localhost:1234/v1')
     client = OpenAI(base_url=base_url, api_key="lm-studio")
 
     model_name = os.getenv("MODEL_NAME", "qwen/qwen3-4b-2507")
@@ -436,7 +483,7 @@ def real_call_llm_for_triples(text_segment: str) -> Dict:
     while True:
         attempt += 1
         try:
-            print(f"    → LLM API call for triple extraction (attempt {attempt})...", end=" ", flush=True)
+            # print(f"    → LLM API call for triple extraction (attempt {attempt})...", end=" ", flush=True)
 
             response = client.chat.completions.create(
                 model=model_name,
@@ -455,7 +502,11 @@ def real_call_llm_for_triples(text_segment: str) -> Dict:
             )
 
             response_text = response.choices[0].message.content.strip()
-            last_response = response_text
+            # Clean response
+            response_text = re.sub(r'<think>.*?</think>', '', response_text, flags=re.DOTALL)
+            # response_text = response_text.replace("<think>", "").replace("</think>", "")
+            response_text = response_text.strip()
+            # last_response = response_text
 
             # Debug: Check response starts with {
             if not response_text.startswith('{'):
@@ -469,9 +520,7 @@ def real_call_llm_for_triples(text_segment: str) -> Dict:
                 time.sleep(1)
                 continue
 
-            # Clean response
-            response_text = response_text.replace("<think>", "").replace("</think>", "")
-            response_text = response_text.strip()
+
 
             # Extract JSON
             try:
@@ -523,7 +572,7 @@ def real_call_llm_for_concepts(node_list: List[str], triples_list: List[Dict] = 
     REAL API: Induce concepts using Llama3.
     WITH improved error handling and debugging.
     """
-    base_url = os.getenv('LM_STUDIO_BASE_URL', 'http://localhost:1234/v1')
+    base_url = os.getenv('BASE_URL', 'http://localhost:1234/v1')
     client = OpenAI(base_url=base_url, api_key="lm-studio")
 
     # Load model parameters from environment
@@ -572,7 +621,8 @@ def real_call_llm_for_concepts(node_list: List[str], triples_list: List[Dict] = 
                 continue
 
             # Clean
-            response_text = response_text.replace("<think>", "").replace("</think>", "")
+            response_text = re.sub(r'<think>.*?</think>', '', response_text, flags=re.DOTALL)
+            # response_text = response_text.replace("<think>", "").replace("</think>", "")
             response_text = response_text.strip()
 
             # Parse JSON

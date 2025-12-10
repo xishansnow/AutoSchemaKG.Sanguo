@@ -8,22 +8,34 @@ context-aware chunks for the Triple Extraction phase.
 import os
 import re
 from typing import List, Dict, Tuple, Set
+import json
+from pathlib import Path
 from pipeline.chunker import MarkdownChunker, PlainTextChunker
 from pipeline.wenyanwen import WenyanTransformer
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from tqdm import tqdm  # Import Progress Bar library
 
 # CONFIGURE NUMBER OF THREADS
-# With RTX 3080 10GB + Llama 3 8B, level 4-5 is optimal.
-MAX_WORKERS = 5
+# With RTX 3080 10GB + Llama 3 8B, level 4-5 is optimal.    
+MAX_WORKERS = int(os.getenv("MODEL_MAX_THREADS", "5"))
 
-# Token/length configuration defaults (aligned with Phase 1 integration doc)
-# TOKEN_LIMIT = 4096
-# INSTRUCTION_TOKEN_ESTIMATE = 200
-# CHAR_TO_TOKEN_RATIO = 3.5
+# Replace hard-coded path with env-configurable path
+LOG_DIR = Path(os.getenv("OUTPUT_DIR", "output"))
+_PHASE1_API_LOG = Path(os.getenv("PHASE1_API_LOG", str(LOG_DIR / "phase1_llm_calls.jsonl")))
+_PHASE1_API_LOG.parent.mkdir(parents=True, exist_ok=True)
+
+def _append_phase1_api_log(entry: dict):
+    """Append one JSON line to output/phase1_llm_calls.jsonl"""
+    try:
+        with open(_PHASE1_API_LOG, "a", encoding="utf-8") as f:
+            f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+    except Exception as e:
+        # never fail the extractor because of logging
+        print(f"  ⚠ Warning: failed to write phase1 api log: {e}")
 
 
-def load_and_segment_text(file_path: str, deduplicate: bool = True, use_real_llm: bool = False) -> List[Dict[str, any]]:
+
+def load_and_segment_text(file_path: str, deduplicate: bool = True, is_wenyanwen: bool = True, use_real_llm: bool = False) -> List[Dict[str, any]]:
     """
     Load a historical text document (Markdown or Text) and segment it.
     Returns structured chunks with metadata (aligned with AutoSchemaKG format).
@@ -69,7 +81,8 @@ def load_and_segment_text(file_path: str, deduplicate: bool = True, use_real_llm
         }
         structured_chunks.append(chunk)
         
-    structured_chunks = _transform_chunks(structured_chunks, use_real_llm)
+    if is_wenyanwen:
+        structured_chunks = _transform_chunks(structured_chunks, use_real_llm)
     
     # Transform from wenyanwen (classical Chinese) to baihuawen (modern Chinese) if needed
     # transformer = WenyanTransformer()  
@@ -92,6 +105,8 @@ def _transform_chunks(raw_chunks: List[Dict], use_real_llm: bool = False) -> Lis
        
     transformer = WenyanTransformer()
         
+    # For testing, limit to first 10 chunks
+    # raw_chunks = raw_chunks[:10]
     # Parallel processing of all chunks
     total_chunks = len(raw_chunks)
     print(f"  🚀 Starting Parallel Transform on {total_chunks} segments with {MAX_WORKERS} threads...")
@@ -99,7 +114,7 @@ def _transform_chunks(raw_chunks: List[Dict], use_real_llm: bool = False) -> Lis
     
     transformed_chunks = [None] * total_chunks
     
-    with ThreadPoolExecutor(max_workers=min(MAX_WORKERS, len(raw_chunks))) as executor:
+    with ThreadPoolExecutor(max_workers=min(MAX_WORKERS, total_chunks)) as executor:
         # Submit all transformation tasks
         future_to_idx = {
             executor.submit(transformer.transform_single_segment, chunk["text"], use_real_llm): idx 
@@ -110,8 +125,9 @@ def _transform_chunks(raw_chunks: List[Dict], use_real_llm: bool = False) -> Lis
             # Collect results as they complete
             for future in as_completed(future_to_idx):
                 idx = future_to_idx[future]
-                try:
+                try:                    
                     transformed_text = future.result()
+                    transformed_text = transformed_text.replace('\n', '')
                     transformed_chunks[idx] = {
                         **raw_chunks[idx],
                         "text": transformed_text

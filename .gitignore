@@ -24,6 +24,7 @@ wheels/
 venv/
 ENV/
 env/
+.venv/
 
 # IDE
 .vscode/
@@ -33,13 +34,13 @@ env/
 *~
 
 # Environment variables
-.env
+# .env
 
 # Output files
-output/*.png
-output/*.json
-output/*.graphml
-output/*.txt
+# output/*.png
+# output/*.json
+# output/*.graphml
+# output/*.txt
 
 # Logs
 *.log
@@ -52,7 +53,7 @@ Thumbs.db
 .ipynb_checkpoints/
 
 # Data files (keep directory structure)
-data/*
+# data/*
 !data/.gitkeep
 
 # Temporary files

@@ -26,7 +26,7 @@ from tqdm import tqdm  # Import Progress Bar library
 
 # CONFIGURE NUMBER OF THREADS
 # With RTX 3080 10GB + Llama 3 8B, level 4-5 is optimal.
-MAX_WORKERS = 5
+MAX_WORKERS = int(os.getenv("MODEL_MAX_THREADS", "5"))
 
 # Replace hard-coded path with env-configurable path
 LOG_DIR = Path(os.getenv("OUTPUT_DIR", "output"))

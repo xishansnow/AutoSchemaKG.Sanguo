@@ -64,7 +64,7 @@ def main():
     Main orchestrator function that executes the four-phase pipeline.
     """
     print("=" * 80)
-    print("History-SCHEMAKG FRAMEWORK - PIPELINE EXECUTION")
+    print("HISTORY-SCHEMAKG FRAMEWORK - PIPELINE EXECUTION")
     print("=" * 80)
     print()
 
@@ -73,12 +73,12 @@ def main():
     input_file = os.getenv("INPUT_FILE", "data/sanguo_origin.txt")
     output_dir = os.getenv("OUTPUT_DIR", "output")
     model_name = os.getenv("MODEL_NAME", "local-model")
-    lm_studio_url = os.getenv("LM_STUDIO_BASE_URL", "http://localhost:1234/v1")
+    base_url = os.getenv("BASE_URL", "http://localhost:1234/v1")
 
     print(f"Configuration:")
     print(f"  - LLM Mode: {'REAL API (LM Studio)' if use_real_llm else 'STUBBED'}")
     if use_real_llm:
-        print(f"  - LM Studio URL: {lm_studio_url}")
+        print(f"  - Base URL: {base_url}")
         print(f"  - Model: {model_name}")
     print(f"  - Input File: {input_file}")
     print(f"  - Output Directory: {output_dir}")
@@ -134,7 +134,7 @@ def main():
         print("Status: Loading and segmenting History text...")
 
         try:
-            text_segments = load_and_segment_text(input_file,use_real_llm = use_real_llm)
+            text_segments = load_and_segment_text(input_file, is_wenyanwen=True, use_real_llm=use_real_llm)
             print(f"✓ Phase 1 Complete. Found {len(text_segments)} text chunks.")
             print(
                 f"  Sample chunk: {text_segments[0]['text'][:100]}..."
@@ -146,12 +146,14 @@ def main():
             print(f"✗ Phase 1 Failed: {e}")
             return
 
-        # Save text_segments to output/baihuawen.txt
-        baihuawen_path = os.path.join(output_dir, "baihuawen.txt")
+        # Save text_segments to output/sanguo_baihua.txt
+        baihuawen_path = os.path.join(output_dir, "sanguo_baihua.txt")
         with open(baihuawen_path, "w", encoding="utf-8") as f:
             for seg in text_segments:
-                f.write(seg["text"].strip() + "\n")
+                f.write(seg["text"].strip() + "\n\n")
         print(f"   -> Saved segmented text to: {baihuawen_path}")
+        
+        return
         
         # =========================================================================
         # PHASE 2: TRIPLE EXTRACTION
