@@ -189,123 +189,21 @@ def stub_call_llm_for_concepts(node_list: List[str]) -> Dict[str, str]:
     return induced_concepts
 
 
-def stub_call_llm_for_wenyanwen(text_segment: str) -> Dict:
+def stub_call_llm_for_wenyanwen(text_segment: str) -> str:
     """
-    STUB: Extract triples from text segment.
+    STUB: Transform classical Chinese (wenyanwen) to modern Chinese (baihuawen).
 
-    Returns hard-coded mock triples that simulate LLM extraction results.
-    The mock data is deterministic based on text content for consistency.
+    For testing purposes, returns the original text unchanged since actual 
+    transformation requires real LLM. In stub mode, we assume the text is 
+    already in modern Chinese or we don't need transformation.
 
     Args:
-        text_segment (str): Text to extract triples from
+        text_segment (str): Classical Chinese text to transform
 
     Returns:
-        Dict: Mock extracted triples
+        str: Transformed modern Chinese text (stub returns original text)
     """
-    # Generate deterministic but varied responses based on text content
-    text_hash = int(hashlib.md5(text_segment.encode()).hexdigest(), 16)
-    variant = text_hash % 3
-
-    if variant == 0:
-        # Medical treatment scenario
-        return {
-            'entity_entity': [
-                {
-                    'head': 'Metformin',
-                    'relation': 'treats',
-                    'tail': 'Type 2 Diabetes',
-                    'confidence': 0.95
-                },
-                {
-                    'head': 'Metformin',
-                    'relation': 'improves',
-                    'tail': 'insulin sensitivity',
-                    'confidence': 0.90
-                }
-            ],
-            'entity_event': [
-                {
-                    'head': 'Patient',
-                    'relation': 'participated_in',
-                    'tail': 'Clinical Trial for Diabetes Management',
-                    'confidence': 0.88
-                }
-            ],
-            'event_event': [
-                {
-                    'head': 'Initial Diabetes Diagnosis',
-                    'relation': 'led_to',
-                    'tail': 'Metformin Treatment Initiation',
-                    'confidence': 0.92
-                }
-            ]
-        }
-    elif variant == 1:
-        # Cardiovascular scenario
-        return {
-            'entity_entity': [
-                {
-                    'head': 'ACE inhibitors',
-                    'relation': 'reduce',
-                    'tail': 'blood pressure',
-                    'confidence': 0.93
-                },
-                {
-                    'head': 'Hypertension',
-                    'relation': 'increases_risk_of',
-                    'tail': 'cardiovascular disease',
-                    'confidence': 0.89
-                }
-            ],
-            'entity_event': [
-                {
-                    'head': 'Diabetic patient',
-                    'relation': 'underwent',
-                    'tail': 'Cardiovascular Risk Assessment',
-                    'confidence': 0.87
-                }
-            ],
-            'event_event': [
-                {
-                    'head': 'Hypertension Detection',
-                    'relation': 'triggered',
-                    'tail': 'ACE Inhibitor Prescription',
-                    'confidence': 0.91
-                }
-            ]
-        }
-    else:
-        # Complication monitoring scenario
-        return {
-            'entity_entity': [
-                {
-                    'head': 'Diabetic nephropathy',
-                    'relation': 'affects',
-                    'tail': 'kidney function',
-                    'confidence': 0.94
-                },
-                {
-                    'head': 'Regular monitoring',
-                    'relation': 'prevents',
-                    'tail': 'end-stage renal disease',
-                    'confidence': 0.86
-                }
-            ],
-            'entity_event': [
-                {
-                    'head': 'Healthcare provider',
-                    'relation': 'performed',
-                    'tail': 'Renal Function Testing',
-                    'confidence': 0.90
-                }
-            ],
-            'event_event': [
-                {
-                    'head': 'Kidney Disease Detection',
-                    'relation': 'enabled',
-                    'tail': 'Timely Intervention',
-                    'confidence': 0.88
-                }
-            ]
-        }
+    # In stub mode, simply return the original text
+    # Real transformation requires actual LLM API
+    return text_segment
 

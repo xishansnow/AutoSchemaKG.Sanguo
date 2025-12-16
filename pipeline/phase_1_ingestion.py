@@ -81,6 +81,7 @@ def load_and_segment_text(file_path: str, deduplicate: bool = True, is_wenyanwen
         }
         structured_chunks.append(chunk)
         
+    # Transform from wenyanwen (classical Chinese) to baihuawen (modern Chinese) if needed
     if is_wenyanwen:
         structured_chunks = _transform_chunks(structured_chunks, use_real_llm)
     
@@ -104,42 +105,92 @@ def _transform_chunks(raw_chunks: List[Dict], use_real_llm: bool = False) -> Lis
     """  
        
     transformer = WenyanTransformer()
-        
-    # For testing, limit to first 10 chunks
-    # raw_chunks = raw_chunks[:10]
-    # Parallel processing of all chunks
+    
+    # Define checkpoint file path
+    checkpoint_file = LOG_DIR / "phase1_transform_checkpoint.jsonl"
+    checkpoint_file.parent.mkdir(parents=True, exist_ok=True)
+    
+    # Load existing checkpoints if any
+    completed_indices = set()
+    transformed_chunks = [None] * len(raw_chunks)
+    
+    if checkpoint_file.exists():
+        print(f"  📂 Loading existing checkpoint from {checkpoint_file}")
+        try:
+            with open(checkpoint_file, "r", encoding="utf-8") as f:
+                for line in f:
+                    if line.strip():
+                        entry = json.loads(line)
+                        idx = entry["chunk_id"]
+                        completed_indices.add(idx)
+                        transformed_chunks[idx] = entry["chunk"]
+            print(f"  ✓ Loaded {len(completed_indices)} completed transformations")
+        except Exception as e:
+            print(f"  ⚠ Warning: failed to load checkpoint: {e}")
+            completed_indices = set()
+    
+    # Filter out already completed chunks
+    pending_chunks = [(idx, chunk) for idx, chunk in enumerate(raw_chunks) if idx not in completed_indices]
     total_chunks = len(raw_chunks)
-    print(f"  🚀 Starting Parallel Transform on {total_chunks} segments with {MAX_WORKERS} threads...")
+    pending_count = len(pending_chunks)
+    
+    if pending_count == 0:
+        print(f"  ✅ All {total_chunks} chunks already transformed!")
+        return transformed_chunks
+    
+    print(f"  🚀 Starting Parallel Transform on {pending_count}/{total_chunks} segments with {MAX_WORKERS} threads...")
     print(f"  ⚡ GPU Utilization target: MAX POWER")
     
-    transformed_chunks = [None] * total_chunks
-    
-    with ThreadPoolExecutor(max_workers=min(MAX_WORKERS, total_chunks)) as executor:
-        # Submit all transformation tasks
+    with ThreadPoolExecutor(max_workers=min(MAX_WORKERS, pending_count)) as executor:
+        # Submit transformation tasks for pending chunks only
         future_to_idx = {
             executor.submit(transformer.transform_single_segment, chunk["text"], use_real_llm): idx 
-            for idx, chunk in enumerate(raw_chunks)
+            for idx, chunk in pending_chunks
         }
         
-        with tqdm(total=total_chunks, desc="  Transforming", unit="seg", ncols=100) as pbar:
+        with tqdm(total=pending_count, desc="  Transforming", unit="seg", ncols=100, initial=0) as pbar:
             # Collect results as they complete
             for future in as_completed(future_to_idx):
                 idx = future_to_idx[future]
                 try:                    
                     transformed_text = future.result()
                     transformed_text = transformed_text.replace('\n', '')
-                    transformed_chunks[idx] = {
+                    transformed_chunk = {
                         **raw_chunks[idx],
                         "text": transformed_text
                     }
+                    transformed_chunks[idx] = transformed_chunk
+                    
+                    # Save checkpoint immediately after each successful transformation
+                    try:
+                        with open(checkpoint_file, "a", encoding="utf-8") as f:
+                            checkpoint_entry = {
+                                "chunk_id": idx,
+                                "chunk": transformed_chunk
+                            }
+                            f.write(json.dumps(checkpoint_entry, ensure_ascii=False) + "\n")
+                    except Exception as e:
+                        pbar.write(f"  ⚠ Warning: failed to save checkpoint for chunk {idx}: {e}")
+                    
                 except Exception as e:
                     pbar.write(f"  ✗ Error transforming chunk {idx}: {e}")
                     # Keep original text if transformation fails
                     transformed_chunks[idx] = raw_chunks[idx]
+                    # Also save the original as checkpoint to mark it as "processed"
+                    try:
+                        with open(checkpoint_file, "a", encoding="utf-8") as f:
+                            checkpoint_entry = {
+                                "chunk_id": idx,
+                                "chunk": raw_chunks[idx]
+                            }
+                            f.write(json.dumps(checkpoint_entry, ensure_ascii=False) + "\n")
+                    except Exception as ce:
+                        pbar.write(f"  ⚠ Warning: failed to save checkpoint for failed chunk {idx}: {ce}")
                 finally:
                     pbar.update(1)
         
     print(f"\n  ✅ Parallel transformation complete! Processed {total_chunks} segments.")
+    print(f"  💾 Checkpoint saved to {checkpoint_file}")
                 
     return transformed_chunks
 
